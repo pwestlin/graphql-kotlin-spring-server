@@ -2,7 +2,7 @@
 An application that simulate the Swedish Transport Agency, implemented with Spring Boot, Kotlin and GraphQL
 
 ## Running the server
-```./gradlew bootRun``
+```./gradlew bootRun```
 
 ## Client
 http://localhost:8080/playground
