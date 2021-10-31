@@ -26,6 +26,7 @@ import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.util.Random
 import java.util.UUID
+import java.util.UUID.randomUUID
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.streams.asSequence
@@ -51,10 +52,14 @@ val persons = listOf(
 
 @Suppress("unused")
 data class Car(
-    // TODO petves: Ändra typen för id till LicensePlate?
-    val id: ID,
+    val id: UUID,
+    val licensePlate: LicensePlate,
+    // TODO petves: enum
     val brand: String,
-    val model: String
+    // TODO petves: enum "för brand enum"
+    val model: String,
+    // TODO petves: typa
+    val year: String
 ) {
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass)
 
@@ -108,9 +113,16 @@ object UUIDCoercing : Coercing<UUID, String> {
 
 @Suppress("unused")
 @Component
+class CarIdQuery : Query {
+
+    // TODO petves: Skriv om med String -> CarId
+    suspend fun generateCarId(): UUID = randomUUID()
+}
+
+@Suppress("unused")
+@Component
 class LicensePlateQuery(@GraphQLIgnore private val licensePlateGenerator: LicensePlateGenerator) : Query {
 
-    // TODO petves: Skriv om med regnr
     suspend fun generateLicensePlate(): LicensePlate = licensePlateGenerator.generate()
 }
 
@@ -121,14 +133,16 @@ class CarQuery(@GraphQLIgnore private val carRepository: CarRepository) : Query 
     suspend fun carByBrand(brand: String): List<Car> = carRepository.findCar(brand)
 
     // TODO petves: Skriv om med regnr
-    suspend fun carById(id: ID): Car? = carRepository.car(id)
+    suspend fun carById(id: UUID): Car? = carRepository.car(id)
 
-    fun uuidThing(): UUIDThing = UUIDThing(UUID.randomUUID(), "Foo", LocalDate.now(), OffsetDateTime.now())
+    fun uuidThing(): UUIDThing = UUIDThing(randomUUID(), "Foo", LocalDate.now(), OffsetDateTime.now())
 }
 
-data class CarInput(
+data class NewCar(
+    val id: UUID,
     val brand: String,
-    val model: String
+    val model: String,
+    val year: String
 )
 
 @Suppress("unused")
@@ -138,11 +152,13 @@ class CarMutation(
     @GraphQLIgnore private val licensePlateGenerator: LicensePlateGenerator
 ) : Mutation {
 
-    suspend fun addCar(carInput: CarInput): Car {
+    suspend fun addCar(newCar: NewCar): Car {
         val car = Car(
-            id = ID(licensePlateGenerator.generate().toString()),
-            brand = carInput.brand,
-            model = carInput.model
+            id = newCar.id,
+            licensePlate = licensePlateGenerator.generate(),
+            brand = newCar.brand,
+            model = newCar.model,
+            year = newCar.year
         )
         carRepository.add(car)
 
@@ -202,9 +218,9 @@ class CarRepository(licensePlateGenerator: LicensePlateGenerator) {
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass)
 
     private val cars = mutableListOf(
-        Car(ID(licensePlateGenerator.generate().toString()), "Porsche", "911"),
-        Car(ID(licensePlateGenerator.generate().toString()), "Volvo", "V60"),
-        Car(ID(licensePlateGenerator.generate().toString()), "Volvo", "142")
+        Car(randomUUID(), licensePlateGenerator.generate(), "Porsche", "911", "1969"),
+        Car(randomUUID(), licensePlateGenerator.generate(), "Volvo", "V60", "2019"),
+        Car(randomUUID(), licensePlateGenerator.generate(), "Volvo", "142", "1971"),
     )
 
     @EventListener
@@ -212,11 +228,11 @@ class CarRepository(licensePlateGenerator: LicensePlateGenerator) {
         logger.info("Randomized cars:\n${cars.joinToString(separator = "\n")}")
     }
 
-    fun car(id: ID): Car? = cars.firstOrNull { it.id == id }
+    fun car(id: UUID): Car? = cars.firstOrNull { it.id == id }
     fun findCar(brand: String): List<Car> = cars.filter { it.brand == brand }
     fun all(): List<Car> = cars.toList()
     fun add(car: Car) {
-        require(cars.firstOrNull { it.brand == car.brand && it.model == it.model } == null) { "Car with brand \"${car.brand}\" and model \"${car.model}\" already exist" }
+        require(cars.firstOrNull { it.id == car.id } == null) { "A car with id ${car.id} already exist" }
         cars.add(car)
     }
 }
