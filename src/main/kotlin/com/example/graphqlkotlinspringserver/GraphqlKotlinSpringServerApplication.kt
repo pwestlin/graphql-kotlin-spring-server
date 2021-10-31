@@ -54,11 +54,8 @@ val persons = listOf(
 data class Car(
     val id: UUID,
     val licensePlate: LicensePlate,
-    // TODO petves: enum
     val brand: String,
-    // TODO petves: enum "för brand enum"
     val model: String,
-    // TODO petves: typa
     val year: String
 ) {
     private val logger: Logger = LoggerFactory.getLogger(this.javaClass)
